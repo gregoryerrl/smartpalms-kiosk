@@ -67,9 +67,6 @@ class LockerKioskApplication:
         except requests.exceptions.Timeout:
             print("Network timeout - server not reachable")
             return False
-        except requests.exceptions.ConnectionError:
-            print("Network connection error")
-            return False
         except subprocess.CalledProcessError:
             print("WiFi interface not found")
             return False
