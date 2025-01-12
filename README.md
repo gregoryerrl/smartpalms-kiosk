@@ -29,7 +29,7 @@ A Raspberry Pi-based kiosk system for controlling Smart Palms lockers using OTP 
 1. Download and install Raspberry Pi Imager from https://www.raspberrypi.com/software/
 2. Insert your SD card into your computer
 3. Open Raspberry Pi Imager and:
-   - Choose "Raspberry Pi OS Lite (64-bit)" as the operating system
+   - Choose "Raspberry Pi OS (64-bit)" as the operating system
    - Select your SD card as the storage
    - Click on the settings gear icon (⚙️) and:
      - Set hostname (optional)
@@ -41,28 +41,22 @@ A Raspberry Pi-based kiosk system for controlling Smart Palms lockers using OTP 
 ### 2. First Boot and System Configuration
 
 1. Insert the SD card into your Raspberry Pi and power it on
-2. Log in using the credentials you set during imaging
-3. Update the system:
+2. Complete the initial setup wizard that appears on first boot
+3. Open Terminal and update the system:
 
 ```bash
 sudo apt update
 sudo apt upgrade -y
 ```
 
-### 3. Install Required System Packages
+### 3. Install Required Packages
 
 ```bash
-# Install X server and required packages
-sudo apt install -y xserver-xorg x11-xserver-utils xinit python3-pip python3-tk git
+# Install git and pip if not already installed
+sudo apt install -y git python3-pip
 
-# Install display manager
-sudo apt install -y lightdm
-
-# Enable auto-login for the pi user (replace 'your_username' with your actual username)
-sudo mkdir -p /etc/lightdm/lightdm.conf.d/
-echo "[Seat:*]
-autologin-user=your_username
-autologin-user-timeout=0" | sudo tee /etc/lightdm/lightdm.conf.d/autologin.conf
+# Add your user to the gpio group
+sudo usermod -a -G gpio $USER
 ```
 
 ### 4. Clone and Setup the Project
@@ -79,7 +73,7 @@ pip3 install -r requirements.txt
 
 ### 5. Configure Autostart
 
-1. Create the autostart directory:
+1. Open the autostart directory:
 
 ```bash
 mkdir -p ~/.config/autostart
@@ -91,8 +85,9 @@ mkdir -p ~/.config/autostart
 echo "[Desktop Entry]
 Type=Application
 Name=SmartPalms Kiosk
-Exec=/usr/bin/python3 /home/your_username/smartpalms-kiosk/main.py
-Path=/home/your_username/smartpalms-kiosk" > ~/.config/autostart/kiosk.desktop
+Exec=/usr/bin/python3 $HOME/smartpalms-kiosk/main.py
+Path=$HOME/smartpalms-kiosk
+X-GNOME-Autostart-enabled=true" > ~/.config/autostart/kiosk.desktop
 ```
 
 ### 6. Configure Display Settings (if needed)
@@ -114,7 +109,24 @@ display_rotate=2
 display_rotate=3
 ```
 
-### 7. GPIO Configuration
+### 7. Disable Screen Saver and Power Management (Optional)
+
+1. Create a new file for power management settings:
+
+```bash
+sudo nano /etc/xdg/autostart/disable-power-management.desktop
+```
+
+2. Add the following content:
+
+```
+[Desktop Entry]
+Type=Application
+Name=Disable Power Management
+Exec=xset s off -dpms
+```
+
+### 8. GPIO Configuration
 
 The application uses the following GPIO pins by default:
 
@@ -128,7 +140,7 @@ The application uses the following GPIO pins by default:
 
 Ensure your lockers are connected to these pins or modify `main.py` to match your wiring.
 
-### 8. Final Steps
+### 9. Final Steps
 
 1. Reboot the system:
 
@@ -144,24 +156,22 @@ sudo reboot
 ### Check Application Status
 
 ```bash
-# View application logs
-journalctl -u lightdm
+# Check if Python process is running
+ps aux | grep python3
 
-# Check if X server is running
-ps aux | grep X
+# Check system logs
+journalctl -f
 ```
 
 ### WiFi Issues
 
 ```bash
-# Check WiFi status
+# Open Raspberry Pi Configuration
+sudo raspi-config
+# Navigate to System Options > Wireless LAN to configure WiFi
+
+# Or check WiFi status from terminal
 iwconfig
-
-# Scan for networks
-sudo iwlist wlan0 scan
-
-# Check network connectivity
-ping 8.8.8.8
 ```
 
 ### GPIO Issues
@@ -169,8 +179,22 @@ ping 8.8.8.8
 ```bash
 # Check GPIO permissions
 ls -l /dev/gpiomem
-# If needed, add your user to the gpio group:
-sudo usermod -a -G gpio your_username
+
+# Verify gpio group membership
+groups $USER
+
+# If needed, add your user to the gpio group again:
+sudo usermod -a -G gpio $USER
+```
+
+### Display Issues
+
+```bash
+# Check display settings
+xrandr
+
+# Reset display settings
+xrandr --auto
 ```
 
 ## Security Considerations
@@ -180,10 +204,10 @@ sudo usermod -a -G gpio your_username
 - Secure exit code prevents unauthorized closing
 - API endpoints use HTTPS
 - GPIO pins are reset on program exit
-- WiFi credentials are stored securely in wpa_supplicant.conf
+- WiFi credentials are stored securely in system settings
 
 ## Support
 
-For issues, please file a bug report in the GitHub repository issues section.
+For issues, please file a bug report in the GitHub repository issues section or contact:
 
 gregoryerrl@gmail.com
