@@ -73,21 +73,49 @@ pip3 install -r requirements.txt
 
 ### 5. Configure Autostart
 
-1. Open the autostart directory:
+1. Create the autostart directories:
 
 ```bash
 mkdir -p ~/.config/autostart
+mkdir -p ~/.config/lxsession/LXDE-pi/
 ```
 
-2. Create the autostart entry:
+2. Create the autostart entry (replace 'pi' with your username if different):
 
 ```bash
 echo "[Desktop Entry]
 Type=Application
 Name=SmartPalms Kiosk
-Exec=/usr/bin/python3 $HOME/smartpalms-kiosk/main.py
+Exec=lxterminal -e python3 $HOME/smartpalms-kiosk/main.py
 Path=$HOME/smartpalms-kiosk
-X-GNOME-Autostart-enabled=true" > ~/.config/autostart/kiosk.desktop
+X-GNOME-Autostart-enabled=true
+Terminal=false
+Hidden=false" > ~/.config/autostart/kiosk.desktop
+```
+
+3. Make the desktop entry executable:
+
+```bash
+chmod +x ~/.config/autostart/kiosk.desktop
+```
+
+4. Create a backup autostart method:
+
+```bash
+echo "@lxterminal -e python3 $HOME/smartpalms-kiosk/main.py" > ~/.config/lxsession/LXDE-pi/autostart
+```
+
+5. Verify the files:
+
+```bash
+# Check desktop entry
+cat ~/.config/autostart/kiosk.desktop
+
+# Check file permissions
+ls -l ~/.config/autostart/kiosk.desktop
+
+# Check Python script exists
+ls -l ~/smartpalms-kiosk/main.py
 ```
 
 ### 6. Configure Display Settings (if needed)

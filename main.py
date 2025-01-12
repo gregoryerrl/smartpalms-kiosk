@@ -28,26 +28,60 @@ class LockerKioskApplication:
         self.exit_code = "9999EXIT"
         
         # Setup GPIO
-        GPIO.setmode(GPIO.BCM)
-        # Setup all locker pins as outputs
-        for pin in self.locker_pins.values():
-            GPIO.setup(pin, GPIO.OUT)
-            GPIO.output(pin, GPIO.LOW)  # Ensure all lockers are closed initially
+        try:
+            GPIO.setmode(GPIO.BCM)
+            # Setup all locker pins as outputs
+            for pin in self.locker_pins.values():
+                GPIO.setup(pin, GPIO.OUT)
+                GPIO.output(pin, GPIO.LOW)  # Ensure all lockers are closed initially
+        except Exception as e:
+            print(f"GPIO Setup Error: {str(e)}")
+            self.show_error_and_exit("Failed to initialize GPIO. Please check permissions and hardware.")
         
         self.main_frame = None
         self.wifi_frame = None
         self.setup_ui()
         self.setup_keyboard_bindings()
         
-        # Check WiFi on startup
-        self.check_wifi_and_proceed()
+        # Setup main UI immediately if WiFi is connected
+        if self.check_wifi_connection():
+            if self.check_api_availability():
+                self.setup_main_ui()
+                self.main_frame.place(relx=0.5, rely=0.5, anchor="center")
+            else:
+                self.show_wifi_screen()
+        else:
+            self.show_wifi_screen()
 
     def check_wifi_connection(self):
         try:
-            # Try to make a request to a reliable server
+            # First check if wlan0 exists and is up
+            iwconfig_output = subprocess.check_output(['iwconfig', 'wlan0']).decode()
+            if "ESSID:off/any" in iwconfig_output:
+                print("WiFi not connected")
+                return False
+                
+            # Then try to reach a reliable server
             requests.get("https://8.8.8.8", timeout=3)
             return True
-        except requests.RequestException:
+        except requests.exceptions.Timeout:
+            print("Network timeout - server not reachable")
+            return False
+        except requests.exceptions.ConnectionError:
+            print("Network connection error")
+            return False
+        except subprocess.CalledProcessError:
+            print("WiFi interface not found")
+            return False
+        except Exception as e:
+            print(f"Unexpected network error: {str(e)}")
+            return False
+
+    def check_api_availability(self):
+        try:
+            response = requests.get(f"{self.base_url}/test", timeout=5)
+            return response.status_code == 200
+        except requests.exceptions.RequestException:
             return False
 
     def get_available_networks(self):
@@ -59,8 +93,34 @@ class LockerKioskApplication:
             # Extract SSIDs using regex
             networks = re.findall(r'ESSID:"([^"]*)"', output)
             return list(set(networks))  # Remove duplicates
-        except:
+        except subprocess.CalledProcessError:
+            self.show_status("Failed to scan networks. Check WiFi hardware.", error=True)
             return []
+        except Exception as e:
+            self.show_status(f"Error scanning networks: {str(e)}", error=True)
+            return []
+
+    def show_error_and_exit(self, message: str):
+        """Show error message and exit application after delay"""
+        error_window = tk.Toplevel(self.root)
+        error_window.title("Fatal Error")
+        error_window.geometry("400x200")
+        
+        ttk.Label(
+            error_window,
+            text=message,
+            font=('Arial', 14),
+            wraplength=350
+        ).pack(pady=20)
+        
+        ttk.Button(
+            error_window,
+            text="Exit",
+            command=lambda: self.cleanup_and_exit()
+        ).pack(pady=10)
+        
+        # Auto exit after 10 seconds
+        self.root.after(10000, self.cleanup_and_exit)
 
     def connect_to_wifi(self, ssid, password):
         try:
@@ -257,33 +317,60 @@ class LockerKioskApplication:
             self.show_status("Please enter OTP", error=True)
             return
         
+        # Check internet connection first
+        if not self.check_wifi_connection():
+            self.show_status("No internet connection", error=True)
+            self.root.after(2000, self.show_wifi_screen)
+            return
+            
         try:
             # First, verify OTP and get locker number
-            response = requests.get(f"{self.base_url}/{otp}")
-            data = response.json()
+            try:
+                response = requests.get(f"{self.base_url}/{otp}", timeout=5)
+                response.raise_for_status()  # Raise exception for bad status codes
+                data = response.json()
+            except requests.exceptions.Timeout:
+                self.show_status("Server not responding", error=True)
+                return
+            except requests.exceptions.ConnectionError:
+                self.show_status("Cannot connect to server", error=True)
+                return
+            except requests.exceptions.HTTPError as e:
+                if response.status_code == 404:
+                    self.show_status("Invalid OTP", error=True)
+                else:
+                    self.show_status(f"Server error: {response.status_code}", error=True)
+                return
+            except ValueError:  # JSON decode error
+                self.show_status("Invalid server response", error=True)
+                return
             
             if data.get("success"):
                 locker_number = data["data"]["number"]
                 
                 # Open the corresponding locker
-                if self.open_locker(locker_number):
-                    self.show_status(f"Opening locker {locker_number}!", error=False)
-                    
-                    # Clear the OTP by making PATCH request
-                    patch_response = requests.patch(f"{self.base_url}/{otp}")
-                    if not patch_response.ok:
-                        print(f"Warning: Failed to clear OTP: {patch_response.status_code}")
-                else:
-                    self.show_status(f"Invalid locker number: {locker_number}", error=True)
+                try:
+                    if self.open_locker(locker_number):
+                        self.show_status(f"Opening locker {locker_number}!", error=False)
+                        
+                        # Clear the OTP by making PATCH request
+                        try:
+                            patch_response = requests.patch(f"{self.base_url}/{otp}", timeout=5)
+                            if not patch_response.ok:
+                                print(f"Warning: Failed to clear OTP: {patch_response.status_code}")
+                        except requests.exceptions.RequestException as e:
+                            print(f"Warning: Failed to clear OTP: {str(e)}")
+                    else:
+                        self.show_status(f"Invalid locker number: {locker_number}", error=True)
+                except Exception as e:
+                    self.show_status("Failed to operate locker", error=True)
+                    print(f"Locker operation error: {str(e)}")
             else:
-                self.show_status("Invalid OTP", error=True)
+                self.show_status(data.get("message", "Invalid OTP"), error=True)
                 
-        except requests.exceptions.RequestException as e:
-            self.show_status("Network error", error=True)
-            print(f"API error: {str(e)}")
         except Exception as e:
             self.show_status("System error", error=True)
-            print(f"System error: {str(e)}")
+            print(f"Unexpected error: {str(e)}")
         
         # Clear input and refocus
         self.otp_var.set("")
