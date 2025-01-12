@@ -186,6 +186,4 @@ sudo usermod -a -G gpio your_username
 
 For issues, please file a bug report in the GitHub repository issues section.
 
-## License
-
-[Your chosen license]
+gregoryerrl@gmail.com
