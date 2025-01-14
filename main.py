@@ -264,9 +264,9 @@ class LockerKioskApplication:
             text=message,
             foreground='red' if error else 'green'
         )
-        # Only clear success messages after 2 seconds
+        # Only clear success messages after 5 seconds
         if not error:
-            self.root.after(2000, lambda: self.status_label.config(text=""))
+            self.root.after(5000, lambda: self.status_label.config(text=""))
 
     def cleanup_and_exit(self):
         GPIO.cleanup()
