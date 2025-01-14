@@ -5,13 +5,13 @@ A Raspberry Pi-based kiosk system for controlling Smart Palms lockers using OTP 
 ## Features
 
 - Fullscreen kiosk interface
-- WiFi network selection and connection
 - Single OTP input field
 - API integration for OTP verification
 - GPIO control for 7 lockers
 - Secure admin exit functionality
 - Automatic startup on boot
 - Error handling and status display
+- Internet connectivity monitoring
 
 ## Hardware Requirements
 
@@ -71,51 +71,40 @@ cd smartpalms-kiosk
 pip3 install -r requirements.txt
 ```
 
-### 5. Configure Autostart
+### 5. Configure Startup Service
 
-1. Create the autostart directories:
+1. Make the startup script executable:
 
 ```bash
-mkdir -p ~/.config/autostart
-mkdir -p ~/.config/lxsession/LXDE-pi/
+chmod +x run_kiosk.sh
 ```
 
-2. Create the autostart entry (replace 'pi' with your username if different):
+2. Copy the service file to systemd directory:
 
 ```bash
-echo "[Desktop Entry]
-Type=Application
-Name=SmartPalms Kiosk
-Exec=lxterminal -e python3 $HOME/smartpalms-kiosk/main.py
-Path=$HOME/smartpalms-kiosk
-X-GNOME-Autostart-enabled=true
-Terminal=false
-Hidden=false" > ~/.config/autostart/kiosk.desktop
+sudo cp smartpalms-kiosk.service /etc/systemd/system/
 ```
 
-3. Make the desktop entry executable:
+3. Edit the service file to match your username (if not 'smartpalms'):
 
 ```bash
-chmod +x ~/.config/autostart/kiosk.desktop
+sudo nano /etc/systemd/system/smartpalms-kiosk.service
 ```
 
-4. Create a backup autostart method:
+Replace all instances of `/home/smartpalms` with your home directory path (e.g., `/home/yourusername`).
+
+4. Enable and start the service:
 
 ```bash
-echo "@lxterminal -e python3 $HOME/smartpalms-kiosk/main.py" > ~/.config/lxsession/LXDE-pi/autostart
+sudo systemctl daemon-reload
+sudo systemctl enable smartpalms-kiosk.service
+sudo systemctl start smartpalms-kiosk.service
 ```
 
-5. Verify the files:
+5. Verify the service is running:
 
 ```bash
-# Check desktop entry
-cat ~/.config/autostart/kiosk.desktop
-
-# Check file permissions
-ls -l ~/.config/autostart/kiosk.desktop
-
-# Check Python script exists
-ls -l ~/smartpalms-kiosk/main.py
+sudo systemctl status smartpalms-kiosk.service
 ```
 
 ### 6. Configure Display Settings (if needed)
@@ -137,24 +126,7 @@ display_rotate=2
 display_rotate=3
 ```
 
-### 7. Disable Screen Saver and Power Management (Optional)
-
-1. Create a new file for power management settings:
-
-```bash
-sudo nano /etc/xdg/autostart/disable-power-management.desktop
-```
-
-2. Add the following content:
-
-```
-[Desktop Entry]
-Type=Application
-Name=Disable Power Management
-Exec=xset s off -dpms
-```
-
-### 8. GPIO Configuration
+### 7. GPIO Configuration
 
 The application uses the following GPIO pins by default:
 
@@ -168,38 +140,35 @@ The application uses the following GPIO pins by default:
 
 Ensure your lockers are connected to these pins or modify `main.py` to match your wiring.
 
-### 9. Final Steps
-
-1. Reboot the system:
-
-```bash
-sudo reboot
-```
-
-2. The kiosk application should start automatically after boot
-3. To exit the application, enter the admin code: 9999EXIT
-
 ## Troubleshooting
 
-### Check Application Status
+### Service Issues
 
 ```bash
-# Check if Python process is running
-ps aux | grep python3
+# View service status
+sudo systemctl status smartpalms-kiosk.service
 
-# Check system logs
-journalctl -f
+# View service logs
+journalctl -u smartpalms-kiosk.service -f
+
+# Restart service
+sudo systemctl restart smartpalms-kiosk.service
+
+# Stop service
+sudo systemctl stop smartpalms-kiosk.service
+
+# Disable service autostart
+sudo systemctl disable smartpalms-kiosk.service
 ```
 
-### WiFi Issues
+### Display Issues
 
 ```bash
-# Open Raspberry Pi Configuration
-sudo raspi-config
-# Navigate to System Options > Wireless LAN to configure WiFi
+# Check display settings
+xrandr
 
-# Or check WiFi status from terminal
-iwconfig
+# Reset display settings
+xrandr --auto
 ```
 
 ### GPIO Issues
@@ -215,15 +184,29 @@ groups $USER
 sudo usermod -a -G gpio $USER
 ```
 
-### Display Issues
+### Common Problems and Solutions
 
-```bash
-# Check display settings
-xrandr
+1. **Black Screen on Startup**
 
-# Reset display settings
-xrandr --auto
-```
+   - Check if the service is running: `systemctl status smartpalms-kiosk.service`
+   - Verify DISPLAY environment variable: `echo $DISPLAY`
+   - Check X server logs: `cat ~/.local/share/xorg/Xorg.0.log`
+
+2. **GPIO Permission Denied**
+
+   - Log out and log back in after adding user to gpio group
+   - Verify group membership: `groups $USER`
+
+3. **Network Connection Issues**
+
+   - Use the desktop's network manager to configure WiFi
+   - Check connection: `ping 8.8.8.8`
+   - Verify DNS: `ping google.com`
+
+4. **Service Won't Start**
+   - Check logs: `journalctl -u smartpalms-kiosk.service -f`
+   - Verify file permissions: `ls -l ~/smartpalms-kiosk/`
+   - Check Python dependencies: `pip3 list`
 
 ## Security Considerations
 
@@ -232,7 +215,7 @@ xrandr --auto
 - Secure exit code prevents unauthorized closing
 - API endpoints use HTTPS
 - GPIO pins are reset on program exit
-- WiFi credentials are stored securely in system settings
+- Service runs under user permissions, not root
 
 ## Support
 
