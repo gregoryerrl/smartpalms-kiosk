@@ -54,7 +54,7 @@ class LockerKioskApplication:
                 return False
                 
             # Then try to reach a reliable server
-            requests.get("http://8.8.8.8", timeout=3)  # Using http to avoid SSL issues
+            requests.get("https://8.8.8.8", timeout=3)  # Using http to avoid SSL issues
             return True
         except requests.exceptions.Timeout:
             print("Network timeout - server not reachable")
