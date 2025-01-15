@@ -28,11 +28,19 @@ class LockerKioskApplication:
         # Setup GPIO
         try:
             GPIO.setmode(GPIO.BCM)
-            # Setup all locker pins as outputs with pull-up resistors (for active-LOW relay modules)
+            GPIO.setwarnings(False)  # Disable warnings about channel in use
+            
+            # Setup all locker pins as inputs first (default state)
             for pin in self.locker_pins.values():
-                GPIO.setup(pin, GPIO.OUT, initial=GPIO.HIGH)
-                GPIO.setup(pin, GPIO.OUT, pull_up_down=GPIO.PUD_UP)  # Enable pull-up
-                GPIO.output(pin, GPIO.HIGH)  # Ensure all relays are inactive initially (HIGH = relay off)
+                GPIO.setup(pin, GPIO.IN)  # First set as input (default state)
+                time.sleep(0.1)  # Small delay between operations
+                
+            # Then configure as outputs with proper state
+            for pin in self.locker_pins.values():
+                GPIO.setup(pin, GPIO.OUT, initial=GPIO.HIGH)  # Set as output with initial HIGH
+                time.sleep(0.1)  # Small delay between operations
+                GPIO.output(pin, GPIO.HIGH)  # Ensure relay is inactive (HIGH)
+                
         except Exception as e:
             print(f"GPIO Setup Error: {str(e)}")
             self.show_error_and_exit("Failed to initialize GPIO. Please check permissions and hardware.")
