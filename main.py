@@ -28,10 +28,11 @@ class LockerKioskApplication:
         # Setup GPIO
         try:
             GPIO.setmode(GPIO.BCM)
-            # Setup all locker pins as outputs
+            # Setup all locker pins as outputs with pull-up resistors (for active-LOW relay modules)
             for pin in self.locker_pins.values():
-                GPIO.setup(pin, GPIO.OUT)
-                GPIO.output(pin, GPIO.LOW)  # Ensure all lockers are closed initially
+                GPIO.setup(pin, GPIO.OUT, initial=GPIO.HIGH)
+                GPIO.setup(pin, GPIO.OUT, pull_up_down=GPIO.PUD_UP)  # Enable pull-up
+                GPIO.output(pin, GPIO.HIGH)  # Ensure all relays are inactive initially (HIGH = relay off)
         except Exception as e:
             print(f"GPIO Setup Error: {str(e)}")
             self.show_error_and_exit("Failed to initialize GPIO. Please check permissions and hardware.")
@@ -179,9 +180,9 @@ class LockerKioskApplication:
     def open_locker(self, locker_number: str):
         if locker_number in self.locker_pins:
             pin = self.locker_pins[locker_number]
-            GPIO.output(pin, GPIO.HIGH)  # Open the locker
-            time.sleep(1)  # Keep it activated for 1 second
-            GPIO.output(pin, GPIO.LOW)   # Close the locker
+            GPIO.output(pin, GPIO.LOW)   # Pull LOW to activate relay
+            time.sleep(1)                # Keep it activated for 1 second
+            GPIO.output(pin, GPIO.HIGH)  # Set back to HIGH to deactivate relay
             return True
         return False
 
