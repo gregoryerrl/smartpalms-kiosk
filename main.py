@@ -45,11 +45,10 @@ class LockerKioskApplication:
             print(f"GPIO Setup Error: {str(e)}")
             self.show_error_and_exit("Failed to initialize GPIO. Please check permissions and hardware.")
         
-        self.main_frame = None
+        self.current_frame = None
         self.setup_ui()
         self.setup_keyboard_bindings()
-        self.setup_main_ui()
-        self.main_frame.place(relx=0.5, rely=0.5, anchor="center")
+        self.show_mode_selection()
         
         # Start periodic connection check
         self.check_connection_periodically()
@@ -125,58 +124,6 @@ class LockerKioskApplication:
         # Auto exit after 10 seconds
         self.root.after(10000, self.cleanup_and_exit)
 
-    def setup_main_ui(self):
-        # Create main frame
-        self.main_frame = ttk.Frame(self.root, padding="20")
-        
-        # Title label
-        self.title_label = ttk.Label(
-            self.main_frame,
-            text="Smart Palms Kiosk",
-            font=('Arial', 28, 'bold')
-        )
-        self.title_label.grid(row=0, column=0, pady=(0, 20))
-        
-        # Instructions label
-        self.instructions_label = ttk.Label(
-            self.main_frame,
-            text="Enter your OTP code:",
-            font=('Arial', 16)
-        )
-        self.instructions_label.grid(row=1, column=0, pady=(0, 10))
-        
-        # Create and configure input
-        self.otp_var = tk.StringVar()
-        self.otp_entry = ttk.Entry(
-            self.main_frame, 
-            textvariable=self.otp_var,
-            font=('Arial', 24),
-            width=10,
-            justify='center'
-        )
-        self.otp_entry.grid(row=2, column=0, padx=5, pady=5)
-        
-        # Create submit button
-        self.submit_button = ttk.Button(
-            self.main_frame,
-            text="Submit",
-            command=self.handle_submit
-        )
-        self.submit_button.grid(row=3, column=0, pady=10)
-        
-        # Status label
-        self.status_label = ttk.Label(
-            self.main_frame,
-            text="",
-            font=('Arial', 16),
-            wraplength=300,
-            justify='center'
-        )
-        self.status_label.grid(row=4, column=0, pady=5)
-        
-        # Focus on entry
-        self.otp_entry.focus()
-
     def setup_ui(self):
         # Configure the window to be fullscreen
         self.root.attributes('-fullscreen', True)
@@ -193,6 +140,311 @@ class LockerKioskApplication:
             GPIO.output(pin, GPIO.HIGH)  # Set back to HIGH to deactivate relay
             return True
         return False
+
+    def show_mode_selection(self):
+        if self.current_frame:
+            self.current_frame.destroy()
+        
+        self.current_frame = ttk.Frame(self.root, padding="20")
+        self.current_frame.place(relx=0.5, rely=0.5, anchor="center")
+        
+        # Title
+        ttk.Label(
+            self.current_frame,
+            text="Smart Palms Kiosk",
+            font=('Arial', 28, 'bold')
+        ).grid(row=0, column=0, columnspan=2, pady=(0, 40))
+        
+        # Buttons
+        ttk.Button(
+            self.current_frame,
+            text="Delivery Staff",
+            command=self.show_otp_screen,
+            width=20
+        ).grid(row=1, column=0, padx=10, pady=10)
+        
+        ttk.Button(
+            self.current_frame,
+            text="Locker Owner",
+            command=self.show_login_screen,
+            width=20
+        ).grid(row=1, column=1, padx=10, pady=10)
+
+    def show_login_screen(self):
+        if self.current_frame:
+            self.current_frame.destroy()
+            
+        self.current_frame = ttk.Frame(self.root, padding="20")
+        self.current_frame.place(relx=0.5, rely=0.5, anchor="center")
+        
+        # Title
+        ttk.Label(
+            self.current_frame,
+            text="Locker Owner Login",
+            font=('Arial', 28, 'bold')
+        ).grid(row=0, column=0, columnspan=2, pady=(0, 40))
+        
+        # Email field
+        ttk.Label(
+            self.current_frame,
+            text="Email:",
+            font=('Arial', 14)
+        ).grid(row=1, column=0, sticky='e', padx=5)
+        
+        self.email_var = tk.StringVar()
+        email_entry = ttk.Entry(
+            self.current_frame,
+            textvariable=self.email_var,
+            font=('Arial', 14),
+            width=30
+        )
+        email_entry.grid(row=1, column=1, padx=5, pady=10)
+        
+        # Password field
+        ttk.Label(
+            self.current_frame,
+            text="Password:",
+            font=('Arial', 14)
+        ).grid(row=2, column=0, sticky='e', padx=5)
+        
+        self.password_var = tk.StringVar()
+        password_entry = ttk.Entry(
+            self.current_frame,
+            textvariable=self.password_var,
+            font=('Arial', 14),
+            width=30,
+            show='*'
+        )
+        password_entry.grid(row=2, column=1, padx=5, pady=10)
+        
+        # Buttons frame
+        buttons_frame = ttk.Frame(self.current_frame)
+        buttons_frame.grid(row=3, column=0, columnspan=2, pady=20)
+        
+        ttk.Button(
+            buttons_frame,
+            text="Back",
+            command=self.show_mode_selection,
+            width=15
+        ).grid(row=0, column=0, padx=5)
+        
+        ttk.Button(
+            buttons_frame,
+            text="Login",
+            command=self.handle_login,
+            width=15
+        ).grid(row=0, column=1, padx=5)
+        
+        # Status label
+        self.login_status_label = ttk.Label(
+            self.current_frame,
+            text="",
+            font=('Arial', 14),
+            wraplength=400,
+            justify='center'
+        )
+        self.login_status_label.grid(row=4, column=0, columnspan=2, pady=10)
+        
+        # Set focus
+        email_entry.focus()
+
+    def show_lockers_screen(self, user_data):
+        if self.current_frame:
+            self.current_frame.destroy()
+            
+        self.current_frame = ttk.Frame(self.root, padding="20")
+        self.current_frame.place(relx=0.5, rely=0.5, anchor="center")
+        
+        # Welcome message
+        ttk.Label(
+            self.current_frame,
+            text=f"Welcome, {user_data['user']['name']}!",
+            font=('Arial', 24, 'bold')
+        ).grid(row=0, column=0, columnspan=3, pady=(0, 20))
+        
+        # Headers
+        headers = ['Locker #', 'Size', 'Status', 'Expires At', 'Action']
+        for i, header in enumerate(headers):
+            ttk.Label(
+                self.current_frame,
+                text=header,
+                font=('Arial', 12, 'bold')
+            ).grid(row=1, column=i, padx=10, pady=(0, 10))
+        
+        # Lockers list
+        for i, locker in enumerate(user_data['lockers']):
+            row = i + 2
+            
+            # Locker number
+            ttk.Label(
+                self.current_frame,
+                text=locker['number'],
+                font=('Arial', 12)
+            ).grid(row=row, column=0, padx=10, pady=5)
+            
+            # Size
+            ttk.Label(
+                self.current_frame,
+                text=locker['size'].capitalize(),
+                font=('Arial', 12)
+            ).grid(row=row, column=1, padx=10, pady=5)
+            
+            # Status
+            ttk.Label(
+                self.current_frame,
+                text=locker['subscription']['status'].capitalize(),
+                font=('Arial', 12)
+            ).grid(row=row, column=2, padx=10, pady=5)
+            
+            # Expiry date
+            expiry = locker['subscription']['expiresAt'].split('T')[0]
+            ttk.Label(
+                self.current_frame,
+                text=expiry,
+                font=('Arial', 12)
+            ).grid(row=row, column=3, padx=10, pady=5)
+            
+            # Open button
+            ttk.Button(
+                self.current_frame,
+                text="Open",
+                command=lambda n=locker['number']: self.open_locker_and_show_status(n)
+            ).grid(row=row, column=4, padx=10, pady=5)
+        
+        # Logout button
+        ttk.Button(
+            self.current_frame,
+            text="Logout",
+            command=self.show_mode_selection,
+            width=15
+        ).grid(row=len(user_data['lockers']) + 2, column=0, columnspan=5, pady=20)
+        
+        # Status label
+        self.locker_status_label = ttk.Label(
+            self.current_frame,
+            text="",
+            font=('Arial', 14),
+            wraplength=400,
+            justify='center'
+        )
+        self.locker_status_label.grid(row=len(user_data['lockers']) + 3, column=0, columnspan=5, pady=10)
+
+    def handle_login(self):
+        email = self.email_var.get().strip()
+        password = self.password_var.get().strip()
+        
+        if not email or not password:
+            self.show_login_status("Please enter both email and password", error=True)
+            return
+            
+        try:
+            response = requests.post(
+                f"{self.base_url}/lockers/external",
+                json={"email": email, "password": password},
+                timeout=5,
+                verify=False
+            )
+            
+            if response.ok:
+                data = response.json()
+                self.show_lockers_screen(data)
+            else:
+                self.show_login_status("Invalid email or password", error=True)
+                
+        except requests.exceptions.RequestException as e:
+            self.show_login_status("Connection error. Please try again.", error=True)
+            print(f"Login error: {str(e)}")
+
+    def show_login_status(self, message: str, error: bool = False):
+        self.login_status_label.config(
+            text=message,
+            foreground='red' if error else 'green'
+        )
+        if not error:
+            self.root.after(5000, lambda: self.login_status_label.config(text=""))
+
+    def open_locker_and_show_status(self, locker_number: str):
+        try:
+            if self.open_locker(locker_number):
+                self.locker_status_label.config(
+                    text=f"Opening locker {locker_number}!",
+                    foreground='green'
+                )
+                self.root.after(5000, lambda: self.locker_status_label.config(text=""))
+            else:
+                self.locker_status_label.config(
+                    text=f"Failed to open locker {locker_number}",
+                    foreground='red'
+                )
+        except Exception as e:
+            self.locker_status_label.config(
+                text="System error. Please try again.",
+                foreground='red'
+            )
+            print(f"Locker operation error: {str(e)}")
+
+    def show_otp_screen(self):
+        if self.current_frame:
+            self.current_frame.destroy()
+            
+        self.current_frame = ttk.Frame(self.root, padding="20")
+        self.current_frame.place(relx=0.5, rely=0.5, anchor="center")
+        
+        # Title label
+        ttk.Label(
+            self.current_frame,
+            text="Delivery Staff Access",
+            font=('Arial', 28, 'bold')
+        ).grid(row=0, column=0, columnspan=2, pady=(0, 20))
+        
+        # Instructions label
+        ttk.Label(
+            self.current_frame,
+            text="Enter your OTP code:",
+            font=('Arial', 16)
+        ).grid(row=1, column=0, columnspan=2, pady=(0, 10))
+        
+        # Create and configure input
+        self.otp_var = tk.StringVar()
+        self.otp_entry = ttk.Entry(
+            self.current_frame, 
+            textvariable=self.otp_var,
+            font=('Arial', 24),
+            width=10,
+            justify='center'
+        )
+        self.otp_entry.grid(row=2, column=0, columnspan=2, padx=5, pady=5)
+        
+        # Buttons frame
+        buttons_frame = ttk.Frame(self.current_frame)
+        buttons_frame.grid(row=3, column=0, columnspan=2, pady=20)
+        
+        ttk.Button(
+            buttons_frame,
+            text="Back",
+            command=self.show_mode_selection,
+            width=15
+        ).grid(row=0, column=0, padx=5)
+        
+        ttk.Button(
+            buttons_frame,
+            text="Submit",
+            command=self.handle_submit,
+            width=15
+        ).grid(row=0, column=1, padx=5)
+        
+        # Status label
+        self.status_label = ttk.Label(
+            self.current_frame,
+            text="",
+            font=('Arial', 16),
+            wraplength=300,
+            justify='center'
+        )
+        self.status_label.grid(row=4, column=0, columnspan=2, pady=5)
+        
+        # Focus on entry
+        self.otp_entry.focus()
 
     def handle_submit(self):
         otp = self.otp_var.get().strip()
