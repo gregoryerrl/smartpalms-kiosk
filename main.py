@@ -238,7 +238,7 @@ class LockerKioskApplication:
                 return
             
             if data.get("success"):
-                locker_number = data["data"]["number"]
+                locker_number = data["data"]["locker"]["number"]
                 
                 # Open the corresponding locker
                 try:
