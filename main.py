@@ -93,14 +93,23 @@ class LockerKioskApplication:
     def check_connection_periodically(self):
         """Check connection every 30 seconds and update status"""
         if not self.check_wifi_connection():
-            self.show_status("No internet connection. Please check your WiFi settings.", error=True)
+            self.show_global_status("No internet connection. Please check your WiFi settings.", error=True)
         elif not self.check_api_availability():
-            self.show_status("Cannot connect to server. Please try again later.", error=True)
+            self.show_global_status("Cannot connect to server. Please try again later.", error=True)
         else:
-            self.status_label.config(text="")
+            self.show_global_status("")
         
         # Schedule next check in 30 seconds
         self.root.after(30000, self.check_connection_periodically)
+
+    def show_global_status(self, message: str, error: bool = False):
+        """Show status message on the current screen"""
+        if hasattr(self, 'status_label') and self.status_label.winfo_exists():
+            self.status_label.config(text=message, foreground='red' if error else 'green')
+        elif hasattr(self, 'login_status_label') and self.login_status_label.winfo_exists():
+            self.login_status_label.config(text=message, foreground='red' if error else 'green')
+        elif hasattr(self, 'locker_status_label') and self.locker_status_label.winfo_exists():
+            self.locker_status_label.config(text=message, foreground='red' if error else 'green')
 
     def show_error_and_exit(self, message: str):
         """Show error message and exit application after delay"""
