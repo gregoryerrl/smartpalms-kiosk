@@ -167,14 +167,14 @@ class LockerKioskApplication:
         # Buttons
         ttk.Button(
             self.current_frame,
-            text="Delivery Staff",
+            text="For Riders",
             command=self.show_otp_screen,
             width=20
         ).grid(row=1, column=0, padx=10, pady=10)
         
         ttk.Button(
             self.current_frame,
-            text="Locker Owner",
+            text="For Users",
             command=self.show_login_screen,
             width=20
         ).grid(row=1, column=1, padx=10, pady=10)
@@ -519,7 +519,9 @@ class LockerKioskApplication:
                     self.show_status("Failed to operate locker. Please try again.", error=True)
                     print(f"Locker operation error: {str(e)}")
             else:
-                self.show_status(data.get("message", "Invalid OTP code"), error=True)
+                # Try to get error message from either "Error" or "message" field
+                error_message = data.get("Error") or data.get("message", "Invalid OTP code")
+                self.show_status(error_message, error=True)
                 
         except Exception as e:
             self.show_status("System error. Please try again.", error=True)
