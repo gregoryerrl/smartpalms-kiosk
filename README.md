@@ -1,13 +1,17 @@
 # Smart Palms Kiosk
 
-A Raspberry Pi-based kiosk system for controlling Smart Palms lockers using OTP verification. This application provides a minimal interface for users to enter OTP codes, which are verified through an API to control individual lockers via GPIO pins.
+A Raspberry Pi-based kiosk system for controlling Smart Palms lockers using OTP verification or user login. This application provides a dual-mode interface for both delivery staff and locker owners to access lockers via GPIO pins, with automatic UV sterilization after each access.
 
 ## Features
 
 - Fullscreen kiosk interface
-- Single OTP input field
-- API integration for OTP verification
+- Dual-mode access:
+  - Delivery staff access via OTP codes
+  - Locker owner access via email/password login
+- API integration for authentication and verification
 - GPIO control for 7 lockers
+- Automatic UV light sterilization after locker access
+- Multi-threaded UV light operation
 - Secure admin exit functionality
 - Automatic startup on boot
 - Error handling and status display
@@ -19,6 +23,7 @@ A Raspberry Pi-based kiosk system for controlling Smart Palms lockers using OTP 
 - Display with HDMI connection
 - USB Keyboard
 - 7 GPIO-controlled lockers
+- 7 GPIO-controlled UV lights
 - Power supply
 - Internet connection
 
@@ -130,6 +135,8 @@ display_rotate=3
 
 The application uses the following GPIO pins by default:
 
+#### Locker Control Pins:
+
 - Locker 1: GPIO 17
 - Locker 2: GPIO 27
 - Locker 3: GPIO 22
@@ -138,7 +145,49 @@ The application uses the following GPIO pins by default:
 - Locker 6: GPIO 25
 - Locker 7: GPIO 4
 
-Ensure your lockers are connected to these pins or modify `main.py` to match your wiring.
+#### UV Light Control Pins:
+
+- UV Light 1: GPIO 5
+- UV Light 2: GPIO 6
+- UV Light 3: GPIO 12
+- UV Light 4: GPIO 13
+- UV Light 5: GPIO 16
+- UV Light 6: GPIO 19
+- UV Light 7: GPIO 20
+
+Ensure your lockers and UV lights are connected to these pins or modify `main.py` to match your wiring.
+
+## User Flow
+
+The application supports two user flows:
+
+### Delivery Staff (Riders)
+
+1. Select "For Riders" on the main screen
+2. Enter the OTP code
+3. If valid, the corresponding locker will open
+4. UV light will automatically activate for 5 minutes
+
+### Locker Owners (Users)
+
+1. Select "For Users" on the main screen
+2. Enter email and password
+3. View all assigned lockers with details
+4. Click "Open" on any locker to access it
+5. UV light will automatically activate for 5 minutes
+
+For a detailed user flow description, see the [USER-FLOW.md](USER-FLOW.md) file.
+
+## UV Light System
+
+The application includes an automatic UV light sterilization system:
+
+- Each locker has a corresponding UV light
+- UV lights activate automatically after a locker is opened
+- Each UV light runs for 5 minutes (configurable in code)
+- Multiple UV lights can run simultaneously using separate threads
+- UV lights continue to run even if users navigate to different screens
+- All UV lights are safely turned off when the application exits
 
 ## Troubleshooting
 
@@ -204,9 +253,15 @@ sudo usermod -a -G gpio $USER
    - Verify DNS: `ping google.com`
 
 4. **Service Won't Start**
+
    - Check logs: `journalctl -u smartpalms-kiosk.service -f`
    - Verify file permissions: `ls -l ~/smartpalms-kiosk/`
    - Check Python dependencies: `pip3 list`
+
+5. **UV Lights Not Working**
+   - Check GPIO connections for UV lights
+   - Verify relay module is properly powered
+   - Check logs for UV light errors: `journalctl -u smartpalms-kiosk.service | grep "UV light"`
 
 ## Security Considerations
 
@@ -216,6 +271,7 @@ sudo usermod -a -G gpio $USER
 - API endpoints use HTTPS
 - GPIO pins are reset on program exit
 - Service runs under user permissions, not root
+- UV light threads are daemon threads that terminate with the main program
 
 ## Support
 

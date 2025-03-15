@@ -5,6 +5,7 @@ import requests
 import sys
 import time
 import subprocess
+import threading
 
 class LockerKioskApplication:
     def __init__(self, root: tk.Tk):
@@ -22,6 +23,23 @@ class LockerKioskApplication:
             "7": 4,   # GPIO pin for locker 7
         }
         
+        # Map locker numbers to UV light GPIO pins
+        self.uv_light_pins = {
+            "1": 5,   # GPIO pin for UV light 1
+            "2": 6,   # GPIO pin for UV light 2
+            "3": 12,  # GPIO pin for UV light 3
+            "4": 13,  # GPIO pin for UV light 4
+            "5": 16,  # GPIO pin for UV light 5
+            "6": 19,  # GPIO pin for UV light 6
+            "7": 20,  # GPIO pin for UV light 7
+        }
+        
+        # Track active UV light threads
+        self.active_uv_threads = {}
+        
+        # UV light duration in seconds (5 minutes)
+        self.uv_light_duration = 300
+        
         # Exit code
         self.exit_code = "9999EXIT"
         
@@ -38,6 +56,17 @@ class LockerKioskApplication:
             # Then configure as outputs with proper state
             for pin in self.locker_pins.values():
                 GPIO.setup(pin, GPIO.OUT, initial=GPIO.HIGH)  # Set as output with initial HIGH
+                time.sleep(0.1)  # Small delay between operations
+                GPIO.output(pin, GPIO.HIGH)  # Ensure relay is inactive (HIGH)
+            
+            # Setup all UV light pins
+            for pin in self.uv_light_pins.values():
+                GPIO.setup(pin, GPIO.IN)  # First set as input (default state)
+                time.sleep(0.1)  # Small delay between operations
+                
+            # Then configure UV light pins as outputs with proper state (initially off)
+            for pin in self.uv_light_pins.values():
+                GPIO.setup(pin, GPIO.OUT, initial=GPIO.HIGH)  # Set as output with initial HIGH (off)
                 time.sleep(0.1)  # Small delay between operations
                 GPIO.output(pin, GPIO.HIGH)  # Ensure relay is inactive (HIGH)
                 
@@ -147,8 +176,54 @@ class LockerKioskApplication:
             GPIO.output(pin, GPIO.LOW)   # Pull LOW to activate relay
             time.sleep(1)                # Keep it activated for 1 second
             GPIO.output(pin, GPIO.HIGH)  # Set back to HIGH to deactivate relay
+            
+            # Start UV light for this locker
+            self.start_uv_light(locker_number)
+            
             return True
         return False
+    
+    def start_uv_light(self, locker_number: str):
+        """Start UV light for a specific locker in a separate thread"""
+        if locker_number in self.uv_light_pins:
+            # Cancel any existing UV thread for this locker
+            if locker_number in self.active_uv_threads and self.active_uv_threads[locker_number].is_alive():
+                # We don't actually cancel the thread, just let it continue
+                print(f"UV light for locker {locker_number} already running")
+            else:
+                # Create and start a new thread for this UV light
+                uv_thread = threading.Thread(
+                    target=self.run_uv_light,
+                    args=(locker_number,),
+                    daemon=True  # Make thread daemon so it exits when main program exits
+                )
+                self.active_uv_threads[locker_number] = uv_thread
+                uv_thread.start()
+                print(f"Started UV light for locker {locker_number}")
+    
+    def run_uv_light(self, locker_number: str):
+        """Run UV light for the specified duration"""
+        try:
+            pin = self.uv_light_pins[locker_number]
+            
+            # Turn on UV light (LOW activates the relay)
+            GPIO.output(pin, GPIO.LOW)
+            print(f"UV light {locker_number} ON")
+            
+            # Keep UV light on for the specified duration
+            time.sleep(self.uv_light_duration)
+            
+            # Turn off UV light (HIGH deactivates the relay)
+            GPIO.output(pin, GPIO.HIGH)
+            print(f"UV light {locker_number} OFF")
+            
+        except Exception as e:
+            print(f"UV light error for locker {locker_number}: {str(e)}")
+            # Ensure relay is turned off in case of error
+            try:
+                GPIO.output(self.uv_light_pins[locker_number], GPIO.HIGH)
+            except:
+                pass
 
     def show_mode_selection(self):
         if self.current_frame:
@@ -541,6 +616,13 @@ class LockerKioskApplication:
             self.root.after(5000, lambda: self.status_label.config(text=""))
 
     def cleanup_and_exit(self):
+        # Turn off all UV lights before exiting
+        for pin in self.uv_light_pins.values():
+            try:
+                GPIO.output(pin, GPIO.HIGH)  # Ensure all relays are inactive
+            except:
+                pass
+                
         GPIO.cleanup()
         self.root.quit()
         sys.exit(0)
