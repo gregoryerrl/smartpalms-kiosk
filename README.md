@@ -191,6 +191,36 @@ The application includes an automatic UV light sterilization system:
 
 ## Troubleshooting
 
+### HTTPS Certificate Issues
+
+When running on a Raspberry Pi, you might encounter "unverified HTTPS request" errors. This happens because the Raspberry Pi OS might not have all the required certificates installed. The application is already configured to bypass certificate verification with `verify=False` in the requests, but here are better solutions:
+
+1. **Install Certificate Authorities**:
+
+   ```bash
+   sudo apt install -y ca-certificates
+   sudo update-ca-certificates
+   ```
+
+2. **Install Certifi Package**:
+
+   ```bash
+   pip3 install certifi
+   ```
+
+   Then update your code to use the certifi certificate bundle:
+
+   ```python
+   import certifi
+   response = requests.get("https://example.com", verify=certifi.where())
+   ```
+
+3. **Manually Set Certificate Path** (if above solutions don't work):
+   ```bash
+   export REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+   ```
+   Add this line to your `.bashrc` file to make it permanent.
+
 ### Service Issues
 
 ```bash

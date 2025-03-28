@@ -6,11 +6,15 @@ import sys
 import time
 import subprocess
 import threading
+import certifi
 
 class LockerKioskApplication:
     def __init__(self, root: tk.Tk):
         self.root = root
         self.base_url = "https://smartpalms.vercel.app/api"
+        
+        # Use certifi for certificate verification
+        self.cert_path = certifi.where()
         
         # Map locker numbers to GPIO pins
         self.locker_pins = {
@@ -91,7 +95,7 @@ class LockerKioskApplication:
                 return False
                 
             # Then try to reach a reliable server
-            requests.get("https://8.8.8.8", timeout=3)  # Using http to avoid SSL issues
+            requests.get("https://8.8.8.8", timeout=3, verify=self.cert_path)
             return True
         except requests.exceptions.Timeout:
             print("Network timeout - server not reachable")
@@ -113,7 +117,7 @@ class LockerKioskApplication:
 
     def check_api_availability(self):
         try:
-            response = requests.get(f"{self.base_url}/test", timeout=5, verify=False)
+            response = requests.get(f"{self.base_url}/test", timeout=5, verify=self.cert_path)
             return response.status_code == 200
         except requests.exceptions.RequestException as e:
             print(f"API check error: {str(e)}")
@@ -426,7 +430,7 @@ class LockerKioskApplication:
                 f"{self.base_url}/lockers/external",
                 json={"email": email, "password": password},
                 timeout=5,
-                verify=False
+                verify=self.cert_path
             )
             
             if response.ok:
@@ -554,7 +558,7 @@ class LockerKioskApplication:
         try:
             # First, verify OTP and get locker number
             try:
-                response = requests.get(f"{self.base_url}/{otp}", timeout=5, verify=False)
+                response = requests.get(f"{self.base_url}/{otp}", timeout=5, verify=self.cert_path)
                 response.raise_for_status()  # Raise exception for bad status codes
                 data = response.json()
             except requests.exceptions.Timeout:
@@ -583,7 +587,7 @@ class LockerKioskApplication:
                         
                         # Clear the OTP by making PATCH request
                         try:
-                            patch_response = requests.patch(f"{self.base_url}/{otp}", timeout=5, verify=False)
+                            patch_response = requests.patch(f"{self.base_url}/{otp}", timeout=5, verify=self.cert_path)
                             if not patch_response.ok:
                                 print(f"Warning: Failed to clear OTP: {patch_response.status_code}")
                         except requests.exceptions.RequestException as e:
