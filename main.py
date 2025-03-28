@@ -178,7 +178,7 @@ class LockerKioskApplication:
         if locker_number in self.locker_pins:
             pin = self.locker_pins[locker_number]
             GPIO.output(pin, GPIO.LOW)   # Pull LOW to activate relay
-            time.sleep(1)                # Keep it activated for 1 second
+            time.sleep(10)                # Keep it activated for 1 second
             GPIO.output(pin, GPIO.HIGH)  # Set back to HIGH to deactivate relay
             
             # Start UV light for this locker
