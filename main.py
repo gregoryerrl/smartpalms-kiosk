@@ -42,7 +42,7 @@ class LockerKioskApplication:
         self.active_uv_threads = {}
         
         # UV light duration in seconds (5 minutes)
-        self.uv_light_duration = 300
+        self.uv_light_duration = 15
         
         # Exit code
         self.exit_code = "9999EXIT"
