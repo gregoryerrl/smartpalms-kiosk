@@ -41,7 +41,7 @@ class LockerKioskApplication:
         # Track active UV light threads
         self.active_uv_threads = {}
         
-        # UV light duration in seconds (5 minutes)
+        # UV light duration in seconds (15 seconds)
         self.uv_light_duration = 15
         
         # Exit code
@@ -81,7 +81,8 @@ class LockerKioskApplication:
         self.current_frame = None
         self.setup_ui()
         self.setup_keyboard_bindings()
-        self.show_mode_selection()
+        # Show OTP screen as the landing page instead of mode selection
+        self.show_otp_screen()
         
         # Start periodic connection check
         self.check_connection_periodically()
@@ -172,7 +173,9 @@ class LockerKioskApplication:
         self.root.configure(bg='black')
 
     def setup_keyboard_bindings(self):
-        self.root.bind('<Return>', lambda e: self.handle_submit())
+        # We'll handle specific bindings for each screen separately
+        # The global binding is removed
+        pass
 
     def open_locker(self, locker_number: str):
         if locker_number in self.locker_pins:
@@ -229,34 +232,70 @@ class LockerKioskApplication:
             except:
                 pass
 
-    def show_mode_selection(self):
+    def show_otp_screen(self):
         if self.current_frame:
             self.current_frame.destroy()
-        
+            
         self.current_frame = ttk.Frame(self.root, padding="20")
         self.current_frame.place(relx=0.5, rely=0.5, anchor="center")
         
-        # Title
+        # Title label
         ttk.Label(
             self.current_frame,
             text="Smart Palms Kiosk",
             font=('Arial', 28, 'bold')
-        ).grid(row=0, column=0, columnspan=2, pady=(0, 40))
+        ).grid(row=0, column=0, columnspan=2, pady=(0, 20))
         
-        # Buttons
+        # Instructions label
+        ttk.Label(
+            self.current_frame,
+            text="Enter your OTP code:",
+            font=('Arial', 16)
+        ).grid(row=1, column=0, columnspan=2, pady=(0, 10))
+        
+        # Create and configure input
+        self.otp_var = tk.StringVar()
+        self.otp_entry = ttk.Entry(
+            self.current_frame, 
+            textvariable=self.otp_var,
+            font=('Arial', 24),
+            width=10,
+            justify='center'
+        )
+        self.otp_entry.grid(row=2, column=0, columnspan=2, padx=5, pady=5)
+        
+        # Bind Enter key to submit
+        self.otp_entry.bind('<Return>', lambda e: self.handle_submit())
+        
+        # Submit button
+        submit_button = ttk.Button(
+            self.current_frame,
+            text="Submit",
+            command=self.handle_submit,
+            width=15
+        )
+        submit_button.grid(row=3, column=0, columnspan=2, pady=10)
+        
+        # Login button
         ttk.Button(
             self.current_frame,
-            text="For Riders",
-            command=self.show_otp_screen,
-            width=20
-        ).grid(row=1, column=0, padx=10, pady=10)
-        
-        ttk.Button(
-            self.current_frame,
-            text="For Users",
+            text="Locker Owner Login",
             command=self.show_login_screen,
             width=20
-        ).grid(row=1, column=1, padx=10, pady=10)
+        ).grid(row=4, column=0, columnspan=2, pady=10)
+        
+        # Status label
+        self.status_label = ttk.Label(
+            self.current_frame,
+            text="",
+            font=('Arial', 16),
+            wraplength=300,
+            justify='center'
+        )
+        self.status_label.grid(row=5, column=0, columnspan=2, pady=5)
+        
+        # Focus on entry
+        self.otp_entry.focus()
 
     def show_login_screen(self):
         if self.current_frame:
@@ -305,6 +344,10 @@ class LockerKioskApplication:
         )
         password_entry.grid(row=2, column=1, padx=5, pady=10)
         
+        # Bind Enter key to login for both fields
+        email_entry.bind('<Return>', lambda e: self.handle_login())
+        password_entry.bind('<Return>', lambda e: self.handle_login())
+        
         # Buttons frame
         buttons_frame = ttk.Frame(self.current_frame)
         buttons_frame.grid(row=3, column=0, columnspan=2, pady=20)
@@ -312,16 +355,17 @@ class LockerKioskApplication:
         ttk.Button(
             buttons_frame,
             text="Back",
-            command=self.show_mode_selection,
+            command=self.show_otp_screen,
             width=15
         ).grid(row=0, column=0, padx=5)
         
-        ttk.Button(
+        login_button = ttk.Button(
             buttons_frame,
             text="Login",
             command=self.handle_login,
             width=15
-        ).grid(row=0, column=1, padx=5)
+        )
+        login_button.grid(row=0, column=1, padx=5)
         
         # Status label
         self.login_status_label = ttk.Label(
@@ -348,7 +392,7 @@ class LockerKioskApplication:
             self.current_frame,
             text=f"Welcome, {user_data['user']['name']}!",
             font=('Arial', 24, 'bold')
-        ).grid(row=0, column=0, columnspan=3, pady=(0, 20))
+        ).grid(row=0, column=0, columnspan=5, pady=(0, 20))
         
         # Headers
         headers = ['Locker #', 'Size', 'Status', 'Expires At', 'Action']
@@ -359,9 +403,15 @@ class LockerKioskApplication:
                 font=('Arial', 12, 'bold')
             ).grid(row=1, column=i, padx=10, pady=(0, 10))
         
+        # Store locker IDs for access history
+        self.current_user_locker_ids = {}
+        
         # Lockers list
         for i, locker in enumerate(user_data['lockers']):
             row = i + 2
+            
+            # Store locker ID mapped to locker number
+            self.current_user_locker_ids[locker['number']] = locker['id']
             
             # Locker number
             ttk.Label(
@@ -403,7 +453,7 @@ class LockerKioskApplication:
         ttk.Button(
             self.current_frame,
             text="Logout",
-            command=self.show_mode_selection,
+            command=self.show_otp_screen,  # Go back to OTP screen instead of mode selection
             width=15
         ).grid(row=len(user_data['lockers']) + 2, column=0, columnspan=5, pady=20)
         
@@ -459,6 +509,23 @@ class LockerKioskApplication:
                     foreground='green'
                 )
                 self.root.after(5000, lambda: self.locker_status_label.config(text=""))
+                
+                # Create access history for type "Kiosk Log In"
+                try:
+                    access_history_data = {
+                        "type": "Kiosk Log In",
+                        "lockerId": self.current_user_locker_ids.get(locker_number, "")
+                    }
+                    # Only send if we have the locker ID
+                    if access_history_data["lockerId"]:
+                        requests.post(
+                            f"{self.base_url}/access-history",
+                            json=access_history_data,
+                            timeout=5,
+                            verify=self.cert_path
+                        )
+                except Exception as e:
+                    print(f"Failed to create access history: {str(e)}")
             else:
                 self.locker_status_label.config(
                     text=f"Failed to open locker {locker_number}",
@@ -470,69 +537,6 @@ class LockerKioskApplication:
                 foreground='red'
             )
             print(f"Locker operation error: {str(e)}")
-
-    def show_otp_screen(self):
-        if self.current_frame:
-            self.current_frame.destroy()
-            
-        self.current_frame = ttk.Frame(self.root, padding="20")
-        self.current_frame.place(relx=0.5, rely=0.5, anchor="center")
-        
-        # Title label
-        ttk.Label(
-            self.current_frame,
-            text="Delivery Staff Access",
-            font=('Arial', 28, 'bold')
-        ).grid(row=0, column=0, columnspan=2, pady=(0, 20))
-        
-        # Instructions label
-        ttk.Label(
-            self.current_frame,
-            text="Enter your OTP code:",
-            font=('Arial', 16)
-        ).grid(row=1, column=0, columnspan=2, pady=(0, 10))
-        
-        # Create and configure input
-        self.otp_var = tk.StringVar()
-        self.otp_entry = ttk.Entry(
-            self.current_frame, 
-            textvariable=self.otp_var,
-            font=('Arial', 24),
-            width=10,
-            justify='center'
-        )
-        self.otp_entry.grid(row=2, column=0, columnspan=2, padx=5, pady=5)
-        
-        # Buttons frame
-        buttons_frame = ttk.Frame(self.current_frame)
-        buttons_frame.grid(row=3, column=0, columnspan=2, pady=20)
-        
-        ttk.Button(
-            buttons_frame,
-            text="Back",
-            command=self.show_mode_selection,
-            width=15
-        ).grid(row=0, column=0, padx=5)
-        
-        ttk.Button(
-            buttons_frame,
-            text="Submit",
-            command=self.handle_submit,
-            width=15
-        ).grid(row=0, column=1, padx=5)
-        
-        # Status label
-        self.status_label = ttk.Label(
-            self.current_frame,
-            text="",
-            font=('Arial', 16),
-            wraplength=300,
-            justify='center'
-        )
-        self.status_label.grid(row=4, column=0, columnspan=2, pady=5)
-        
-        # Focus on entry
-        self.otp_entry.focus()
 
     def handle_submit(self):
         otp = self.otp_var.get().strip()
